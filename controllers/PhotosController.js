@@ -32,24 +32,19 @@ module.exports.uploadPhoto = async (req, res) => {
 
 let getPhotoInfo = async (photo, type) => {
     let share_user = await Share.find({photo_id: photo._id});
-    if (type === 'search') {
-        return ({
-            id: photo._id,
-            name: photo.name,
-            url: photo.url,
-            owner_id: photo.owner_id,
-            tags: photo.tags ? photo.tags.split(",") : []
-        });
-    }
-
-    return ({
+    let photo_info = {
         id: photo._id,
         name: photo.name,
         url: photo.url,
         owner_id: photo.owner_id,
         users: share_user.filter(el => el.user_id !== photo.owner_id).map(el => el.user_id),
-        tags: photo.tags ? photo.tags.split(",") : []
-    });
+        tags: photo.tags ? photo.tags.split(",") : [],
+    }
+    if (type === 'search') {
+        delete photo_info.users;
+    }
+
+    return photo_info;
 }
 
 module.exports.viewsPhoto = async (req, res) => {
