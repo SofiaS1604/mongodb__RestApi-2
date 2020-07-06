@@ -11,7 +11,7 @@ module.exports.createUser = (req, res) => {
             for (key in error.errors)
                 obj_errors[key] = error.errors[key].properties.message;
 
-            return res.status(422).send(!obj_errors.length ? phone_errors : obj_errors);
+            return res.status(422).send(!obj_errors ? phone_errors : obj_errors);
         }
 
         return res.status(200).json({id: user._id})
@@ -44,20 +44,18 @@ module.exports.loginUser = async (req, res) => {
 
 module.exports.getToken = async (token, res) => {
     let tokenUser = token ? token.split(" ")[1] : '';
-    let user = await User.findOne({token: tokenUser});
+    let user = tokenUser !== '-1' ? await User.findOne({token: tokenUser}) : '';
 
     if (!user) {
         return res.status(403).json({message: "You need authorization"});
     }
+
     return user;
 };
 
 module.exports.logoutUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
-    user.token = '-1';
-    await user.save();
-
-    return res.status(200).send('');
+    console.log(user);
 };
 
 module.exports.changePassword = async (req, res) => {
@@ -69,7 +67,8 @@ module.exports.changePassword = async (req, res) => {
         return res.status(201).send('');
     } else {
         let errorsUpdate = {};
-        if (!req.body.currentPassword || req.body.currentPassword === user.password)
+
+        if (!req.body.currentPassword || req.body.currentPassword !== user.password)
             errorsUpdate.currentPassword = "currentPassword должен быть таким, который стоит у пользователя";
 
         if (!req.body.newPassword)
@@ -81,9 +80,10 @@ module.exports.changePassword = async (req, res) => {
 
 module.exports.sharingUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
-    for (let photo_id of req.params.photos) {
-        if (await Share.findOne({photo_id: photo_id, user_id: user._id})) {
-            new Share({user_id: user._id, photo_id: photo_id}).save();
+
+    for (let photo_id of req.body.photos) {
+        if (!await Share.findOne({photo_id: photo_id, user_id: req.params.id})) {
+            new Share({user_id: req.params.id, photo_id: photo_id}).save();
         }
     }
 

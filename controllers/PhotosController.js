@@ -39,13 +39,14 @@ let getPhotoInfo = async (photo, type) => {
         owner_id: photo.owner_id,
         users: share_user.filter(el => el.user_id !== photo.owner_id).map(el => el.user_id),
         tags: photo.tags ? photo.tags.split(",") : [],
-    }
+    };
+
     if (type === 'search') {
         delete photo_info.users;
     }
 
     return photo_info;
-}
+};
 
 module.exports.viewsPhoto = async (req, res) => {
     let user = await UsersController.getToken(req.header('Authorization'), res);
@@ -64,15 +65,17 @@ module.exports.sharedPhoto = async (req, res) => {
     let shared = await Share.find({user_id: user._id});
     let photos_array = [];
     for (let share of shared) {
-        let photo_array = await getPhotoInfo(await Photo.findOne({_id: share.photo_id}));
-        if (photo_array.owner_id !== String(user._id)) {
-            photos_array.push(photo_array);
+        let photo = await Photo.findOne({_id: share.photo_id});
+        if(share.user_id !== String(photo._id)){
+            let photo_array = await getPhotoInfo(photo);
+            if (photo_array.owner_id !== String(user._id)) {
+                photos_array.push(photo_array);
+            }
         }
     }
 
     return res.status(200).json(photos_array);
 };
-
 
 module.exports.viewPhoto = async (req, res) => {
     let user = await UsersController.getToken(req.header('Authorization'), res);
@@ -91,11 +94,11 @@ module.exports.deletePhoto = async (req, res) => {
 
     if (photo) {
         fs.unlinkSync(path.join(__dirname, '../uploads/' + photo.url.split('http://localhost:3000/photos/')[1]));
+        await Share.find({photo_id: photo._id}).deleteMany({});
         photo.remove();
         return res.status(204).send('');
-    } else {
+    } else
         return res.status(403).send('');
-    }
 };
 
 module.exports.searchPhoto = async (req, res) => {
@@ -118,7 +121,8 @@ module.exports.searchPhoto = async (req, res) => {
         if (photos) {
             for (let photo of photos) {
                 let photo_array = await getPhotoInfo(await Photo.findOne({_id: photo._id}), 'search');
-                photos_array.push(photo_array);
+                if(photo_array.owner_id !== String(user._id))
+                    photos_array.push(photo_array);
             }
         }
     }

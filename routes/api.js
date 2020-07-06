@@ -34,6 +34,10 @@ router.post('/api/logout', multipartMiddleware, (req, res) => {
     usersController.logoutUser(req, res)
 });
 
+router.post('/api/changePassword', multipartMiddleware, (req, res) => {
+    usersController.changePassword(req, res)
+});
+
 router.post('/api/photo', upload.single('photo'), (req, res) => {
     photosController.uploadPhoto(req, res)
 });
