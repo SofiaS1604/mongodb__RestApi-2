@@ -11,7 +11,7 @@ module.exports.createUser = (req, res) => {
             for (key in error.errors)
                 obj_errors[key] = error.errors[key].properties.message;
 
-            return res.status(422).send(!obj_errors ? phone_errors : obj_errors);
+            return res.status(422).send(!obj_errors.length ? phone_errors : obj_errors);
         }
 
         return res.status(200).json({id: user._id})
