@@ -55,7 +55,9 @@ module.exports.getToken = async (token, res) => {
 
 module.exports.logoutUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
-    console.log(user);
+    user.token = '-1';
+    await user.save();
+    return res.status(201).send('');
 };
 
 module.exports.changePassword = async (req, res) => {
