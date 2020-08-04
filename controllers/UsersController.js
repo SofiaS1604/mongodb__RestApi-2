@@ -11,7 +11,7 @@ module.exports.createUser = (req, res) => {
             for (key in error.errors)
                 obj_errors[key] = error.errors[key].properties.message;
 
-            return res.status(422).send(!obj_errors.length ? phone_errors : obj_errors);
+            return res.status(422).send(!obj_errors ? phone_errors : obj_errors);
         }
 
         return res.status(200).json({id: user._id})
@@ -55,7 +55,12 @@ module.exports.getToken = async (token, res) => {
 
 module.exports.logoutUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
-    console.log(user);
+
+    if(user !== null){
+        user.token = '-1';
+        await user.save()
+        return res.status(200).send("")
+    }
 };
 
 module.exports.changePassword = async (req, res) => {
