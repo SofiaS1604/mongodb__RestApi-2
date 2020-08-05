@@ -11,7 +11,7 @@ module.exports.createUser = (req, res) => {
             for (key in error.errors)
                 obj_errors[key] = error.errors[key].properties.message;
 
-            return res.status(422).send(!obj_errors ? phone_errors : obj_errors);
+            return res.status(422).send(!obj_errors[0] ? phone_errors : obj_errors);
         }
 
         return res.status(200).json({id: user._id})
@@ -45,104 +45,113 @@ module.exports.loginUser = async (req, res) => {
 module.exports.getToken = async (token, res) => {
     let tokenUser = token ? token.split(" ")[1] : '';
     let user = tokenUser !== '-1' ? await User.findOne({token: tokenUser}) : '';
-
-    if (!user) {
-        return res.status(403).json({message: "You need authorization"});
-    }
-
-    return user;
+    return !user ? null : user;
 };
 
 module.exports.logoutUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
 
-    if(user !== null){
+    if (user !== null) {
         user.token = '-1';
         await user.save()
         return res.status(200).send("")
+    } else {
+        res.status(403).json({message: "You need authorization"})
     }
 };
 
 module.exports.changePassword = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
 
-    if (req.body.currentPassword && req.body.newPassword && req.body.currentPassword === user.password) {
-        user.password = req.body.newPassword;
-        await user.save();
-        return res.status(201).send('');
+    if (user !== null) {
+        if (req.body.currentPassword && req.body.newPassword && req.body.currentPassword === user.password) {
+            user.password = req.body.newPassword;
+            await user.save();
+            return res.status(201).send('');
+        } else {
+            let errorsUpdate = {};
+
+            if (!req.body.currentPassword || req.body.currentPassword !== user.password)
+                errorsUpdate.currentPassword = "currentPassword должен быть таким, который стоит у пользователя";
+
+            if (!req.body.newPassword)
+                errorsUpdate.newPassword = "newPassword не может быть пустым";
+
+            return res.status(422).json(errorsUpdate)
+        }
     } else {
-        let errorsUpdate = {};
-
-        if (!req.body.currentPassword || req.body.currentPassword !== user.password)
-            errorsUpdate.currentPassword = "currentPassword должен быть таким, который стоит у пользователя";
-
-        if (!req.body.newPassword)
-            errorsUpdate.newPassword = "newPassword не может быть пустым";
-
-        return res.status(422).json(errorsUpdate)
+        return res.status(403).json({message: "You need authorization"});
     }
 };
 
 module.exports.sharingUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
 
-    for (let photo_id of req.body.photos) {
-        if (!await Share.findOne({photo_id: photo_id, user_id: req.params.id})) {
-            new Share({user_id: req.params.id, photo_id: photo_id}).save();
+    if (user !== null) {
+        for (let photo_id of req.body.photos) {
+            if (!await Share.findOne({photo_id: photo_id, user_id: req.params.id})) {
+                new Share({user_id: req.params.id, photo_id: photo_id}).save();
+            }
         }
-    }
 
-    let share_user = await Share.find({user_id: user._id});
-    return res.status(201).json(share_user ? share_user.map(el => el.user_id) : [])
+        let share_user = await Share.find({user_id: user._id});
+        return res.status(201).json(share_user ? share_user.map(el => el.user_id) : [])
+    } else {
+        res.status(403).json({message: "You need authorization"})
+    }
 }
 
 module.exports.searchUser = async (req, res) => {
     let user = await this.getToken(req.header('Authorization'), res);
-    let search = req.query.search.split(" ");
-    let users_array = [];
+    if (user !== null) {
+        let search = req.query.search.split(" ");
+        let users_array = [];
 
-    if (search.length === 1) {
-        users_array = await User.find({
-            $or: [
-                {
-                    first_name: {$regex: '.*' + search[0] + '.*'}
-                },
-                {
-                    surname: {$regex: '.*' + search[0] + '.*'}
-                },
-                {
-                    phone: {$regex: '.*' + search[0] + '.*'}
-                }
-            ]
-        }, {_id: 1, first_name: 1, surname: 1, phone: 1})
+        if (search.length === 1) {
+            users_array = await User.find({
+                $or: [
+                    {
+                        first_name: {$regex: '.*' + search[0] + '.*'}
+                    },
+                    {
+                        surname: {$regex: '.*' + search[0] + '.*'}
+                    },
+                    {
+                        phone: {$regex: '.*' + search[0] + '.*'}
+                    }
+                ]
+            }, {_id: 1, first_name: 1, surname: 1, phone: 1})
+        }
+
+        if (search.length === 2) {
+            users_array = await User.find({
+                $or: [
+                    {
+                        first_name: {$regex: '.*' + search[0] + '.*'},
+                        surname: {$regex: '.*' + search[1] + '.*'}
+                    },
+                    {
+                        surname: {$regex: '.*' + search[0] + '.*'},
+                        phone: {$regex: '.*' + search[1] + '.*'}
+                    },
+                    {
+                        first_name: {$regex: '.*' + search[0] + '.*'},
+                        phone: {$regex: '.*' + search[1] + '.*'}
+                    },
+                ]
+            }, {_id: 1, first_name: 1, surname: 1, phone: 1})
+        }
+
+        if (search.length === 3) {
+            users_array = await User.find({
+                first_name: {$regex: '.*' + search[0] + '.*'},
+                surname: {$regex: '.*' + search[1] + '.*'},
+                phone: {$regex: '.*' + search[2] + '.*'}
+            }, {_id: 1, first_name: 1, surname: 1, phone: 1});
+        }
+
+        return res.status(200).json(users_array);
+    } else {
+        res.status(403).json({message: "You need authorization"})
     }
-
-    if (search.length === 2) {
-        users_array = await User.find({
-            $or: [
-                {
-                    first_name: {$regex: '.*' + search[0] + '.*'},
-                    surname: {$regex: '.*' + search[1] + '.*'}
-                },
-                {
-                    surname: {$regex: '.*' + search[0] + '.*'},
-                    phone: {$regex: '.*' + search[1] + '.*'}
-                },
-                {
-                    first_name: {$regex: '.*' + search[0] + '.*'},
-                    phone: {$regex: '.*' + search[1] + '.*'}
-                },
-            ]
-        }, {_id: 1, first_name: 1, surname: 1, phone: 1})
-    }
-
-    if (search.length === 3) {
-        users_array = await User.find({
-            first_name: {$regex: '.*' + search[0] + '.*'},
-            surname: {$regex: '.*' + search[1] + '.*'},
-            phone: {$regex: '.*' + search[2] + '.*'}
-        }, {_id: 1, first_name: 1, surname: 1, phone: 1});
-    }
-
-    return res.status(200).json(users_array);
 };
